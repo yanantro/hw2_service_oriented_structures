@@ -62,7 +62,7 @@ create table order_items (
     order_id bigint not null references orders (id) on delete cascade,
     product_id bigint not null references products (id),
     quantity integer not null check (quantity between 1 and 999),
-    price_at_order numeric(12, 3) not null check (price_at_order > 0)
+    price_at_order numeric(12, 2) not null check (price_at_order > 0)
 );
 create index idx_order_items_order on order_items (order_id);
 
