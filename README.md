@@ -4,9 +4,6 @@
 ```bash
 docker compose up --build
 ```
-API http://localhost:8000
-
-Swagger ui http://localhost:8000/docs
 
 База `docker compose exec db psql -U marketplace -d marketplace`
 
