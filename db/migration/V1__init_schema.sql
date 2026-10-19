@@ -1,75 +1,75 @@
-CREATE TYPE product_status AS ENUM ('ACTIVE', 'INACTIVE', 'ARCHIVED');
-CREATE TYPE order_status   AS ENUM ('CREATED', 'PAYMENT_PENDING', 'PAID', 'SHIPPED', 'COMPLETED', 'CANCELED');
-CREATE TYPE discount_type  AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');
-CREATE TYPE operation_type AS ENUM ('CREATE_ORDER', 'UPDATE_ORDER');
+create type product_status as enum ('ACTIVE', 'INACTIVE', 'ARCHIVED');
+create type order_status as enum ('CREATED', 'PAYMENT_PENDING', 'PAID', 'SHIPPED', 'COMPLETED', 'CANCELED');
+create type discount_type as enum ('PERCENTAGE', 'FIXED_AMOUNT');
+create type operation_type as enum ('CREATE_ORDER', 'UPDATE_ORDER');
 
-CREATE FUNCTION set_updated_at() RETURNS trigger AS $$
-BEGIN
-    NEW.updated_at := now();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+create function set_updated_at() returns trigger as $$
+begin
+    new.updated_at := now();
+    return new;
+end;
+$$ language plpgsql;
 
-CREATE TABLE products (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name        VARCHAR(255)   NOT NULL,
-    description VARCHAR(4000),
-    price       NUMERIC(12, 2) NOT NULL CHECK (price > 0),
-    stock       INTEGER        NOT NULL CHECK (stock >= 0),
-    category    VARCHAR(100)   NOT NULL,
-    status      product_status NOT NULL,
-    seller_id   BIGINT,
-    created_at  TIMESTAMPTZ    NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ    NOT NULL DEFAULT now()
+create table products (
+    id bigint generated always as identity primary key,
+    name varchar(255) not null,
+    description varchar(4000),
+    price numeric(12, 2) not null check (price > 0),
+    stock integer not null check (stock >= 0),
+    category varchar(100) not null,
+    status product_status not null,
+    seller_id bigint,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
 );
-CREATE INDEX idx_products_status   ON products (status);
-CREATE INDEX idx_products_category ON products (category);
-CREATE TRIGGER trg_products_updated_at BEFORE UPDATE ON products
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+create index idx_products_status on products (status);
+create index idx_products_category on products (category);
+create trigger trg_products_updated_at before update on products
+    for each row execute function set_updated_at();
 
-CREATE TABLE promo_codes (
-    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code             VARCHAR(20)    NOT NULL UNIQUE,
-    discount_type    discount_type  NOT NULL,
-    discount_value   NUMERIC(12, 2) NOT NULL CHECK (discount_value > 0),
-    min_order_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (min_order_amount >= 0),
-    max_uses         INTEGER        NOT NULL CHECK (max_uses > 0),
-    current_uses     INTEGER        NOT NULL DEFAULT 0 CHECK (current_uses >= 0 AND current_uses <= max_uses),
-    valid_from       TIMESTAMPTZ    NOT NULL,
-    valid_until      TIMESTAMPTZ    NOT NULL,
-    active           BOOLEAN        NOT NULL DEFAULT TRUE,
-    CHECK (valid_until > valid_from)
+create table promo_codes (
+    id bigint generated always as identity primary key,
+    code varchar(20) not null unique,
+    discount_type discount_type not null,
+    discount_value numeric(12, 2) not null check (discount_value > 0),
+    min_order_amount numeric(12, 2) not null default 0 check (min_order_amount >= 0),
+    max_uses integer not null check (max_uses > 0),
+    current_uses integer not null default 0 check (current_uses >= 0 and current_uses <= max_uses),
+    valid_from timestamptz not null,
+    valid_until timestamptz not null,
+    active boolean not null default true,
+    check (valid_until > valid_from)
 );
 
-CREATE TABLE orders (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id         BIGINT         NOT NULL,
-    status          order_status   NOT NULL DEFAULT 'CREATED',
-    promo_code_id   BIGINT REFERENCES promo_codes (id),
-    total_amount    NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
-    discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
-    created_at      TIMESTAMPTZ    NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ    NOT NULL DEFAULT now()
+create table orders (
+    id bigint generated always as identity primary key,
+    user_id bigint not null,
+    status order_status not null default 'CREATED',
+    promo_code_id bigint references promo_codes (id),
+    total_amount numeric(12, 2) not null check (total_amount >= 0),
+    discount_amount numeric(12, 2) not null default 0 check (discount_amount >= 0),
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
 );
-CREATE INDEX idx_orders_user_status ON orders (user_id, status);
-CREATE UNIQUE INDEX uq_orders_one_active_per_user ON orders (user_id)
-    WHERE status IN ('CREATED', 'PAYMENT_PENDING');
-CREATE TRIGGER trg_orders_updated_at BEFORE UPDATE ON orders
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+create index idx_orders_user_status on orders (user_id, status);
+create unique index uq_orders_one_active_per_user on orders (user_id)
+    where status in ('CREATED', 'PAYMENT_PENDING');
+create trigger trg_orders_updated_at before update on orders
+    for each row execute function set_updated_at();
 
-CREATE TABLE order_items (
-    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    order_id       BIGINT         NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
-    product_id     BIGINT         NOT NULL REFERENCES products (id),
-    quantity       INTEGER        NOT NULL CHECK (quantity BETWEEN 1 AND 999),
-    price_at_order NUMERIC(12, 2) NOT NULL CHECK (price_at_order > 0)
+create table order_items (
+    id bigint generated always as identity primary key,
+    order_id bigint not null references orders (id) on delete cascade,
+    product_id bigint not null references products (id),
+    quantity integer not null check (quantity between 1 and 999),
+    price_at_order numeric(12, 3) not null check (price_at_order > 0)
 );
-CREATE INDEX idx_order_items_order ON order_items (order_id);
+create index idx_order_items_order on order_items (order_id);
 
-CREATE TABLE user_operations (
-    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id        BIGINT         NOT NULL,
-    operation_type operation_type NOT NULL,
-    created_at     TIMESTAMPTZ    NOT NULL DEFAULT now()
+create table user_operations (
+    id bigint generated always as identity primary key,
+    user_id bigint not null,
+    operation_type operation_type not null,
+    created_at timestamptz not null default now()
 );
-CREATE INDEX idx_user_operations_lookup ON user_operations (user_id, operation_type, created_at DESC);
+create index idx_user_operations_lookup on user_operations (user_id, operation_type, created_at desc);
